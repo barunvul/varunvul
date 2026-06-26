@@ -1,5 +1,34 @@
 const STORAGE_KEY = "variable-insurance-manager-pro-v2";
 let DATA_DATE = "2026-06-25";
+let appMeta = {
+  displayName: "변액보험 매니저 Pro",
+  maker: "바른변액",
+  version: "0.3.0",
+  updatedAt: "2026-06-26",
+};
+
+const insurerThemes = [
+  { names: ["삼성생명", "삼성"], primary: "#1f5fbf", soft: "#eaf2ff", ink: "#174a92" },
+  { names: ["한화생명", "한화"], primary: "#f37321", soft: "#fff0e5", ink: "#9a4514" },
+  { names: ["교보생명", "교보"], primary: "#0a8f62", soft: "#e8f7f0", ink: "#076342" },
+  { names: ["미래에셋생명", "미래에셋"], primary: "#0076a8", soft: "#e6f5fb", ink: "#075477" },
+  { names: ["메트라이프생명", "메트라이프"], primary: "#007abc", soft: "#e8f5fc", ink: "#04577f" },
+  { names: ["신한라이프생명", "신한라이프"], primary: "#5b5fc7", soft: "#efeffb", ink: "#3d4193" },
+  { names: ["KB라이프생명", "KB라이프"], primary: "#d6a800", soft: "#fff7d9", ink: "#725c00" },
+  { names: ["ABL생명", "ABL"], primary: "#c8102e", soft: "#fdebef", ink: "#8a1024" },
+  { names: ["흥국생명", "흥국"], primary: "#d7197f", soft: "#fdebf5", ink: "#911051" },
+  { names: ["iM라이프생명", "iM라이프", "DGB생명"], primary: "#005eb8", soft: "#e8f2ff", ink: "#064887" },
+  { names: ["KDB생명", "KDB"], primary: "#0b3a75", soft: "#eaf0f8", ink: "#082953" },
+  { names: ["DB생명", "DB"], primary: "#008542", soft: "#e8f7ef", ink: "#056032" },
+  { names: ["동양생명", "동양"], primary: "#c62828", soft: "#fdecec", ink: "#842020" },
+  { names: ["처브라이프생명", "처브라이프", "Chubb"], primary: "#0057a8", soft: "#e8f2fb", ink: "#053f78" },
+  { names: ["하나생명", "하나"], primary: "#008375", soft: "#e7f6f3", ink: "#065f56" },
+  { names: ["BNP파리바카디프생명", "카디프"], primary: "#00843d", soft: "#e8f7ef", ink: "#075d30" },
+  { names: ["푸본현대생명", "푸본현대"], primary: "#004b9b", soft: "#e9f1fb", ink: "#073c76" },
+  { names: ["라이나생명", "라이나"], primary: "#009a9a", soft: "#e6f8f8", ink: "#056d6d" },
+  { names: ["AIA생명", "AIA"], primary: "#d71920", soft: "#fdecec", ink: "#94151a" },
+  { names: ["IBK연금보험", "IBK"], primary: "#005bac", soft: "#e8f2fb", ink: "#06427d" },
+];
 
 const defaultFunds = [
   {
@@ -302,6 +331,8 @@ const icons = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
   refresh:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18 2v4h4M6 22v-4H2"/></svg>',
+  edit:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
   link:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></svg>',
   file:
@@ -323,6 +354,7 @@ let activeRange = 30;
 let simulationWeights = {};
 let simulationClientId = null;
 let simulationSelectedFundIds = [];
+let editingClientId = null;
 
 const rankingPeriods = {
   day: { label: "1일", suffix: "" },
@@ -336,6 +368,9 @@ const rankingPeriods = {
 };
 
 const els = {
+  appName: document.querySelector("#app-name"),
+  appMaker: document.querySelector("#app-maker"),
+  appVersion: document.querySelector("#app-version"),
   clientList: document.querySelector("#client-list"),
   clientSearch: document.querySelector("#client-search"),
   dataDate: document.querySelector("#data-date"),
@@ -376,9 +411,14 @@ const els = {
   notice: document.querySelector("#client-notice"),
   reportPreview: document.querySelector("#report-preview"),
   toast: document.querySelector("#toast"),
+  clientHero: document.querySelector(".client-hero"),
   clientModal: document.querySelector("#client-modal"),
   clientForm: document.querySelector("#client-form"),
+  clientModalEyebrow: document.querySelector("#client-modal-eyebrow"),
+  clientModalTitle: document.querySelector("#client-modal-title"),
+  clientModalSubmit: document.querySelector("#client-modal-submit"),
   addClientButton: document.querySelector("#open-add-client"),
+  editClientButton: document.querySelector("#edit-client"),
   syncDataButton: document.querySelector("#sync-data"),
 };
 
@@ -577,6 +617,79 @@ function formatDate(date) {
   return date.replaceAll("-", ".");
 }
 
+function normalizeInsurerNameForTheme(name = "") {
+  return String(name).replace(/\s+/g, "").replace(/생명보험$/, "생명");
+}
+
+function insurerTheme(insurer = "") {
+  const normalized = normalizeInsurerNameForTheme(insurer);
+  const found = insurerThemes.find((theme) =>
+    theme.names.some((name) => {
+      const key = normalizeInsurerNameForTheme(name);
+      return normalized.includes(key) || key.includes(normalized.replace("생명", ""));
+    }),
+  );
+  if (found) return found;
+
+  const palette = [
+    ["#0c7a52", "#e8f5ef", "#075f3f"],
+    ["#087a8a", "#e7f5f7", "#055b66"],
+    ["#7b5f16", "#f7f1df", "#5a4611"],
+    ["#7a4e9d", "#f1ecf8", "#583871"],
+  ];
+  const hash = [...normalized].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const [primary, soft, ink] = palette[hash % palette.length];
+  return { primary, soft, ink };
+}
+
+function insurerStyle(insurer) {
+  const theme = insurerTheme(insurer);
+  return `--insurer-color:${theme.primary};--insurer-soft:${theme.soft};--insurer-ink:${theme.ink};`;
+}
+
+function applyInsurerTheme(element, insurer) {
+  if (!element) return;
+  const theme = insurerTheme(insurer);
+  element.style.setProperty("--insurer-color", theme.primary);
+  element.style.setProperty("--insurer-soft", theme.soft);
+  element.style.setProperty("--insurer-ink", theme.ink);
+}
+
+function parseMoneyInput(value) {
+  const cleaned = String(value ?? "").replace(/[,\s]/g, "");
+  if (!cleaned) return NaN;
+  const numeric = Number(cleaned);
+  return Number.isFinite(numeric) ? Math.round(numeric) : NaN;
+}
+
+function sanitizeDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : DATA_DATE;
+}
+
+async function loadAppMeta() {
+  try {
+    const response = await fetch(`./package.json?ts=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("package metadata unavailable");
+    const pkg = await response.json();
+    appMeta = {
+      displayName: pkg.appMeta?.displayName || appMeta.displayName,
+      maker: pkg.appMeta?.maker || appMeta.maker,
+      version: pkg.version || appMeta.version,
+      updatedAt: pkg.appMeta?.updatedAt || appMeta.updatedAt,
+    };
+  } catch {
+    // The package metadata keeps release text in one place; fallback values keep local previews usable.
+  }
+  renderAppMeta();
+}
+
+function renderAppMeta() {
+  document.title = appMeta.displayName;
+  if (els.appName) els.appName.textContent = appMeta.displayName;
+  if (els.appMaker) els.appMaker.textContent = `만든이 : ${appMeta.maker}`;
+  if (els.appVersion) els.appVersion.textContent = `v${appMeta.version} · 수정 ${formatDate(appMeta.updatedAt)}`;
+}
+
 function classForValue(value) {
   return value >= 0 ? "up" : "down";
 }
@@ -651,7 +764,7 @@ function renderClientList() {
     .map((client) => {
       const summary = clientSummary(client);
       return `
-        <button class="client-button ${client.id === state.selectedClientId ? "active" : ""}" data-client-id="${client.id}">
+        <button class="client-button ${client.id === state.selectedClientId ? "active" : ""}" data-client-id="${client.id}" style="${insurerStyle(client.insurer)}">
           <span class="client-mini-avatar">${client.name.slice(0, 1)}</span>
           <span>
             <strong>${client.name}</strong>
@@ -665,6 +778,8 @@ function renderClientList() {
 }
 
 function renderHeader(client, summary) {
+  applyInsurerTheme(els.clientHero, client.insurer);
+  applyInsurerTheme(els.clientAvatar, client.insurer);
   const meta = state.fundDatasetMeta || {};
   const sourceLabel = meta.fundCount ? `공시 기준일 ${formatDate(DATA_DATE)} · ${meta.fundCount.toLocaleString("ko-KR")}개 펀드` : `모의 기준일 ${formatDate(DATA_DATE)}`;
   els.dataDate.textContent = `${sourceLabel} · 마지막 수집 ${state.lastSync}`;
@@ -702,7 +817,7 @@ function renderAllocationTable(client, summary) {
       const fund = fundById(allocation.fundId);
       const contribution = client.baseValue * allocation.weight * fund.day;
       return `
-        <tr>
+        <tr style="${insurerStyle(client.insurer)}">
           <td>
             <div class="fund-name">
               <strong>${fund.name}</strong>
@@ -743,7 +858,7 @@ function renderRanking() {
   els.fundRanking.innerHTML = ranked
     .map(
       (fund, index) => `
-        <div class="ranking-item">
+        <div class="ranking-item" style="${insurerStyle(insurer)}">
           <span class="rank-number">${index + 1}</span>
           <span>
             <strong>${fund.name}</strong>
@@ -775,7 +890,7 @@ function renderFundCatalog() {
   els.fundCatalog.innerHTML = shown
     .map(
       (fund) => `
-        <div class="catalog-item">
+        <div class="catalog-item" style="${insurerStyle(fund.insurer)}">
           <span>
             <strong>${fund.name}</strong>
             <small>${fund.insurer} · ${fund.category || fund.bigType || "분류 없음"} · ${fund.fundCd || fund.id}</small>
@@ -805,6 +920,7 @@ function generateSeries(client, days) {
 }
 
 function renderChart(client) {
+  const theme = insurerTheme(client.insurer);
   const series = generateSeries(client, activeRange);
   const width = 900;
   const height = 292;
@@ -824,17 +940,17 @@ function renderChart(client) {
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${client.name} 적립금 변화 그래프">
       <defs>
         <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="#0c7a52" stop-opacity="0.25" />
-          <stop offset="100%" stop-color="#0c7a52" stop-opacity="0" />
+          <stop offset="0%" stop-color="${theme.primary}" stop-opacity="0.25" />
+          <stop offset="100%" stop-color="${theme.primary}" stop-opacity="0" />
         </linearGradient>
       </defs>
       <path d="${area}" fill="url(#chartFill)" />
-      <path d="${path}" fill="none" stroke="#0c7a52" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-      <circle cx="${x(0)}" cy="${y(start)}" r="6" fill="#ffffff" stroke="#0c7a52" stroke-width="4" />
-      <circle cx="${x(series.length - 1)}" cy="${y(end)}" r="7" fill="#0c7a52" stroke="#ffffff" stroke-width="4" />
+      <path d="${path}" fill="none" stroke="${theme.primary}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="${x(0)}" cy="${y(start)}" r="6" fill="#ffffff" stroke="${theme.primary}" stroke-width="4" />
+      <circle cx="${x(series.length - 1)}" cy="${y(end)}" r="7" fill="${theme.primary}" stroke="#ffffff" stroke-width="4" />
       <text x="${pad.left}" y="20" fill="#66736d" font-size="13" font-weight="800">${formatShortMoney(max)}</text>
       <text x="${pad.left}" y="${height - 10}" fill="#66736d" font-size="13" font-weight="800">${formatShortMoney(min)}</text>
-      <text x="${x(series.length - 1) - 108}" y="${Math.max(24, y(end) - 14)}" fill="#0c7a52" font-size="15" font-weight="900">오늘 ${formatShortMoney(end)}</text>
+      <text x="${x(series.length - 1) - 108}" y="${Math.max(24, y(end) - 14)}" fill="${theme.ink}" font-size="15" font-weight="900">오늘 ${formatShortMoney(end)}</text>
     </svg>
   `;
   els.chartStartLabel.textContent = `최초등록 ${formatDate(client.baseDate)}`;
@@ -962,7 +1078,7 @@ function renderSimulationPicker(client) {
     .map((fund) => {
       const selected = simulationSelectedFundIds.includes(fund.id);
       return `
-        <button class="picker-item ${selected ? "selected" : ""}" data-pick-fund="${fund.id}" type="button">
+        <button class="picker-item ${selected ? "selected" : ""}" data-pick-fund="${fund.id}" type="button" style="${insurerStyle(client.insurer)}">
           <span>
             <strong>${fund.name}</strong>
             <small>${fund.category || "분류 없음"} · ${formatPercent(rateForFund(fund, period))}</small>
@@ -1099,6 +1215,7 @@ function renderAll() {
   if (!client) return;
   const summary = clientSummary(client);
 
+  renderAppMeta();
   renderClientList();
   renderHeader(client, summary);
   renderKpis(summary);
@@ -1112,6 +1229,132 @@ function renderAll() {
   renderHistory(client);
   renderNotice(client, summary);
   renderReport(client, summary);
+}
+
+function readClientForm() {
+  const form = new FormData(els.clientForm);
+  const reserve = parseMoneyInput(form.get("reserve"));
+  const actualValue = parseMoneyInput(form.get("actualValue"));
+  return {
+    id: String(form.get("clientId") || "").trim(),
+    name: String(form.get("name") || "").trim(),
+    segment: String(form.get("segment") || "").trim() || "관리",
+    insurer: String(form.get("insurer") || "").trim(),
+    product: String(form.get("product") || "").trim(),
+    baseDate: sanitizeDate(form.get("baseDate")),
+    reserve,
+    actualValue: Number.isFinite(actualValue) ? actualValue : reserve,
+  };
+}
+
+function validAllocationsForInsurer(client, insurer) {
+  const fundIds = new Set(fundsForInsurer(insurer).map((fund) => fund.id));
+  return (client.allocations || []).filter((allocation) => fundIds.has(allocation.fundId));
+}
+
+function openClientModal(client = null) {
+  populateModalOptions();
+  editingClientId = client?.id || null;
+  els.clientForm.reset();
+  els.clientModalEyebrow.textContent = client ? "edit client" : "new client";
+  els.clientModalTitle.textContent = client ? "고객 수정" : "고객 등록";
+  els.clientModalSubmit.textContent = client ? "저장" : "등록";
+
+  const fields = els.clientForm.elements;
+  fields.clientId.value = client?.id || "";
+  fields.name.value = client?.name || "";
+  fields.segment.value = client?.segment || "신규";
+  fields.insurer.value = client?.insurer || currentClient()?.insurer || insurers()[0] || "";
+  fields.product.value = client?.product || "";
+  fields.baseDate.value = client?.baseDate || DATA_DATE;
+  fields.reserve.value = Number.isFinite(client?.baseValue) ? Math.round(client.baseValue) : "";
+  fields.actualValue.value = Number.isFinite(client?.actualValue) ? Math.round(client.actualValue) : "";
+  els.clientModal.showModal();
+}
+
+function closeClientModal() {
+  editingClientId = null;
+  els.clientForm.reset();
+  els.clientModal.close();
+}
+
+function saveClientFromForm() {
+  const payload = readClientForm();
+  if (!payload.name || !payload.insurer || !payload.product || !Number.isFinite(payload.reserve) || payload.reserve < 0) {
+    showToast("고객명, 보험사, 상품명, 적립금을 정확히 입력해주세요.");
+    return;
+  }
+
+  const target = state.clients.find((client) => client.id === (editingClientId || payload.id));
+  if (target) {
+    const previousInsurer = target.insurer;
+    const previousReserve = target.baseValue;
+    target.name = payload.name;
+    target.segment = payload.segment;
+    target.insurer = payload.insurer;
+    target.product = payload.product;
+    target.baseDate = payload.baseDate;
+    target.baseValue = payload.reserve;
+    target.actualValue = payload.actualValue;
+    target.allocations = previousInsurer === payload.insurer ? validAllocationsForInsurer(target, payload.insurer) : [];
+    if (!target.allocations.length) target.allocations = bestDefaultAllocations(payload.insurer);
+
+    const reason = [
+      previousInsurer !== payload.insurer ? `보험사 ${previousInsurer} → ${payload.insurer}` : "",
+      previousReserve !== payload.reserve ? `적립금 ${formatShortMoney(previousReserve)} → ${formatShortMoney(payload.reserve)}` : "",
+    ].filter(Boolean);
+    target.history.unshift({
+      date: DATA_DATE,
+      value: payload.reserve,
+      change: "고객 정보 수정",
+      reason: reason.join(" · ") || "기본 정보 수정",
+      result: "-",
+    });
+    state.selectedClientId = target.id;
+    resetSimulationWeights(target);
+    if (els.rankingInsurer) els.rankingInsurer.value = target.insurer;
+    saveState();
+    closeClientModal();
+    renderAll();
+    showToast("고객 정보를 수정했습니다.");
+    return;
+  }
+
+  const allocations = bestDefaultAllocations(payload.insurer);
+  if (!allocations.length) {
+    showToast("선택한 보험사의 펀드 데이터가 없습니다.");
+    return;
+  }
+
+  const id = `client-${Date.now()}`;
+  state.clients.unshift({
+    id,
+    name: payload.name,
+    segment: payload.segment,
+    insurer: payload.insurer,
+    product: payload.product,
+    baseDate: payload.baseDate,
+    baseValue: payload.reserve,
+    actualValue: payload.actualValue,
+    allocations,
+    history: [
+      {
+        date: DATA_DATE,
+        value: payload.reserve,
+        change: "최초 등록",
+        reason: "신규 고객 포트폴리오 등록",
+        result: "-",
+      },
+    ],
+  });
+
+  state.selectedClientId = id;
+  resetSimulationWeights(currentClient());
+  if (els.rankingInsurer) els.rankingInsurer.value = payload.insurer;
+  saveState();
+  closeClientModal();
+  renderAll();
+  showToast("고객을 등록했습니다.");
 }
 
 function arrangeDashboardColumns() {
@@ -1308,55 +1551,15 @@ function wireEvents() {
   document.querySelector("#print-report").addEventListener("click", () => window.print());
   document.querySelector("#print-report-inline").addEventListener("click", () => window.print());
 
-  els.addClientButton.addEventListener("click", () => els.clientModal.showModal());
+  els.addClientButton.addEventListener("click", () => openClientModal());
+  els.editClientButton.addEventListener("click", () => openClientModal(currentClient()));
 
-  document.querySelector("#close-client-modal").addEventListener("click", () => els.clientModal.close());
-  document.querySelector("#cancel-client-modal").addEventListener("click", () => els.clientModal.close());
+  document.querySelector("#close-client-modal").addEventListener("click", closeClientModal);
+  document.querySelector("#cancel-client-modal").addEventListener("click", closeClientModal);
 
   els.clientForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const form = new FormData(els.clientForm);
-    const insurer = form.get("insurer");
-    const reserve = Number(form.get("reserve"));
-    const fundPool = fundsForInsurer(insurer);
-    const first = fundPool[0];
-    const second = fundPool.find((fund) => fund.category.includes("채권") || fund.category.includes("혼합")) || fundPool[1] || first;
-    const id = `client-${Date.now()}`;
-
-    state.clients.unshift({
-      id,
-      name: String(form.get("name")).trim(),
-      segment: "신규",
-      insurer,
-      product: String(form.get("product")).trim(),
-      baseDate: DATA_DATE,
-      baseValue: reserve,
-      actualValue: reserve,
-      allocations:
-        first.id === second.id
-          ? [{ fundId: first.id, weight: 1 }]
-          : [
-              { fundId: first.id, weight: 0.7 },
-              { fundId: second.id, weight: 0.3 },
-            ],
-      history: [
-        {
-          date: DATA_DATE,
-          value: reserve,
-          change: "최초 등록",
-          reason: "신규 고객 포트폴리오 등록",
-          result: "-",
-        },
-      ],
-    });
-
-    state.selectedClientId = id;
-    resetSimulationWeights(currentClient());
-    saveState();
-    els.clientForm.reset();
-    els.clientModal.close();
-    renderAll();
-    showToast("고객을 등록했습니다.");
+    saveClientFromForm();
   });
 
   els.syncDataButton.addEventListener("click", async () => {
@@ -1473,6 +1676,7 @@ function initFromUrl() {
 
 async function bootstrap() {
   renderIcons();
+  await loadAppMeta();
   await loadExternalFundData();
   populateModalOptions();
   initFromUrl();

@@ -12,8 +12,9 @@
         <div class="brand">
           <div class="brand-mark">V</div>
           <div>
-            <strong>변액보험 매니저 Pro</strong>
-            <span>Portfolio Operating Desk</span>
+            <strong id="app-name">변액보험 매니저 Pro</strong>
+            <span id="app-maker">만든이 : 바른변액</span>
+            <small id="app-version" class="brand-version">v0.3.0 · 수정 2026.06.26</small>
           </div>
         </div>
 
@@ -64,6 +65,10 @@
             <button class="ghost-btn" id="sync-data">
               <span class="icon" data-icon="refresh"></span>
               데이터 수집
+            </button>
+            <button class="ghost-btn" id="edit-client">
+              <span class="icon" data-icon="edit"></span>
+              고객 수정
             </button>
             <button class="ghost-btn" id="copy-client-link">
               <span class="icon" data-icon="link"></span>
@@ -306,16 +311,21 @@
       <form method="dialog" class="modal-card" id="client-form">
         <div class="modal-head">
           <div>
-            <p class="eyebrow">new client</p>
-            <h3>고객 등록</h3>
+            <p class="eyebrow" id="client-modal-eyebrow">new client</p>
+            <h3 id="client-modal-title">고객 등록</h3>
           </div>
           <button class="ghost-btn icon-only" type="button" id="close-client-modal" aria-label="닫기">
             <span class="icon" data-icon="x"></span>
           </button>
         </div>
+        <input name="clientId" type="hidden" />
         <label>
           고객명
           <input name="name" required placeholder="예: 홍길동" />
+        </label>
+        <label>
+          관리 구분
+          <input name="segment" placeholder="예: VIP / 신규 / 관리" />
         </label>
         <label>
           보험사
@@ -325,13 +335,23 @@
           상품명
           <input name="product" required placeholder="예: 동행 Plus" />
         </label>
+        <div class="modal-grid">
+          <label>
+            최초 등록일
+            <input name="baseDate" type="date" />
+          </label>
+          <label>
+            현재 적립금
+            <input name="reserve" type="number" min="0" step="1" inputmode="numeric" required placeholder="100000001" />
+          </label>
+        </div>
         <label>
-          현재 적립금
-          <input name="reserve" type="number" min="1000000" step="1000000" required placeholder="100000000" />
+          실제 적립금
+          <input name="actualValue" type="number" min="0" step="1" inputmode="numeric" placeholder="예상 적립금과 같으면 비워두기" />
         </label>
         <div class="modal-actions">
           <button class="ghost-btn" type="button" id="cancel-client-modal">취소</button>
-          <button class="primary-btn" type="submit">등록</button>
+          <button class="primary-btn" type="submit" id="client-modal-submit">등록</button>
         </div>
       </form>
     </dialog>

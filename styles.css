@@ -95,9 +95,18 @@ button {
 }
 
 .brand span,
+.brand small,
 .source-summary span {
   color: rgba(238, 244, 239, 0.7);
   font-size: 12px;
+}
+
+.brand-version {
+  display: block;
+  margin-top: 3px;
+  color: rgba(238, 244, 239, 0.54);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .sidebar-tools {
@@ -138,6 +147,8 @@ button {
 }
 
 .client-button {
+  --insurer-color: #16a36f;
+  --insurer-soft: rgba(255, 255, 255, 0.1);
   width: 100%;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
@@ -153,12 +164,14 @@ button {
 
 .client-button:hover,
 .client-button.active {
-  background: rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--insurer-color) 18%, transparent), rgba(255, 255, 255, 0.08)),
+    rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.14);
 }
 
 .client-button.active {
-  box-shadow: inset 3px 0 0 #16a36f;
+  box-shadow: inset 3px 0 0 var(--insurer-color);
 }
 
 .client-mini-avatar,
@@ -168,7 +181,7 @@ button {
   flex: 0 0 auto;
   color: #fff;
   font-weight: 800;
-  background: var(--green);
+  background: var(--insurer-color, var(--green));
   border-radius: 8px;
 }
 
@@ -291,14 +304,20 @@ button {
 }
 
 .client-hero {
+  --insurer-color: var(--green);
+  --insurer-soft: #e8f5ef;
+  --insurer-ink: var(--green);
   display: flex;
   align-items: stretch;
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 10px;
   padding: 14px;
-  background: var(--surface);
+  background:
+    linear-gradient(90deg, var(--insurer-soft), rgba(255, 255, 255, 0) 42%),
+    var(--surface);
   border: 1px solid var(--line);
+  border-left: 4px solid var(--insurer-color);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
@@ -330,10 +349,10 @@ button {
   align-items: center;
   height: 24px;
   padding: 0 8px;
-  color: var(--green);
+  color: var(--insurer-ink, var(--green));
   font-size: 12px;
   font-weight: 800;
-  background: #e8f5ef;
+  background: var(--insurer-soft, #e8f5ef);
   border-radius: 999px;
 }
 
@@ -572,7 +591,7 @@ tbody tr:last-child td {
 .bar-track i {
   display: block;
   height: 100%;
-  background: var(--green);
+  background: var(--insurer-color, var(--green));
 }
 
 .up {
@@ -646,11 +665,15 @@ tbody tr:last-child td {
 }
 
 .catalog-item {
+  --insurer-color: var(--green);
+  --insurer-soft: var(--surface-2);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   padding: 10px;
-  background: var(--surface-2);
+  background:
+    linear-gradient(90deg, var(--insurer-soft), rgba(255, 255, 255, 0) 70%),
+    var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
@@ -677,12 +700,16 @@ tbody tr:last-child td {
 }
 
 .ranking-item {
+  --insurer-color: var(--charcoal);
+  --insurer-soft: var(--surface-2);
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 10px;
-  background: var(--surface-2);
+  background:
+    linear-gradient(90deg, var(--insurer-soft), rgba(255, 255, 255, 0) 62%),
+    var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
@@ -695,7 +722,7 @@ tbody tr:last-child td {
   color: #fff;
   font-size: 12px;
   font-weight: 900;
-  background: var(--charcoal);
+  background: var(--insurer-color, var(--charcoal));
   border-radius: 6px;
 }
 
@@ -766,8 +793,8 @@ tbody tr:last-child td {
 }
 
 .picker-item.selected {
-  background: #e8f5ef;
-  border-color: #9bd7bd;
+  background: var(--insurer-soft, #e8f5ef);
+  border-color: color-mix(in srgb, var(--insurer-color, #0c7a52) 44%, #ffffff);
 }
 
 .picker-item strong {
@@ -786,7 +813,7 @@ tbody tr:last-child td {
 }
 
 .picker-item b {
-  color: var(--green);
+  color: var(--insurer-color, var(--green));
   font-size: 12px;
   white-space: nowrap;
 }
@@ -1040,6 +1067,12 @@ dialog::backdrop {
   padding: 18px;
 }
 
+.modal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: 10px;
+}
+
 .modal-head,
 .modal-actions {
   justify-content: space-between;
@@ -1149,6 +1182,10 @@ dialog::backdrop {
   }
 
   .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-grid {
     grid-template-columns: 1fr;
   }
 
