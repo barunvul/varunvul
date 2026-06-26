@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "api/update-funds.js": {
+      "maxDuration": 60
+    },
+    "api/funds.js": {
+      "maxDuration": 30
+    },
+    "api/status.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/update-funds",
+      "schedule": "10 22 * * *"
+    }
+  ]
+}

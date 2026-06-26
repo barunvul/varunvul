@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>변액보험 매니저 Pro</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="고객 목록">
+        <div class="brand">
+          <div class="brand-mark">V</div>
+          <div>
+            <strong>변액보험 매니저 Pro</strong>
+            <span>Portfolio Operating Desk</span>
+          </div>
+        </div>
+
+        <div class="sidebar-tools">
+          <label class="search-field" for="client-search">
+            <span class="icon" data-icon="search"></span>
+            <input id="client-search" type="search" placeholder="고객 검색" autocomplete="off" />
+          </label>
+          <button class="primary-btn full" id="open-add-client">
+            <span class="icon" data-icon="plus"></span>
+            고객 등록
+          </button>
+        </div>
+
+        <nav id="client-list" class="client-list"></nav>
+
+        <div class="source-summary">
+          <div class="source-summary__head">
+            <span class="icon" data-icon="database"></span>
+            <strong>기준가 수집</strong>
+          </div>
+          <div class="sync-row">
+            <span>CSV</span>
+            <b class="status-dot good"></b>
+          </div>
+          <div class="sync-row">
+            <span>엑셀</span>
+            <b class="status-dot good"></b>
+          </div>
+          <div class="sync-row">
+            <span>PDF</span>
+            <b class="status-dot warn"></b>
+          </div>
+          <div class="sync-row">
+            <span>홈페이지</span>
+            <b class="status-dot good"></b>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="data-date">기준일</p>
+            <h1 id="client-title">고객 포트폴리오</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-btn" id="sync-data">
+              <span class="icon" data-icon="refresh"></span>
+              데이터 수집
+            </button>
+            <button class="ghost-btn" id="copy-client-link">
+              <span class="icon" data-icon="link"></span>
+              고객 링크
+            </button>
+            <button class="primary-btn" id="print-report">
+              <span class="icon" data-icon="file"></span>
+              리포트
+            </button>
+          </div>
+        </header>
+
+        <section class="client-hero" aria-label="선택 고객 요약">
+          <div class="client-profile">
+            <div class="avatar" id="client-avatar">홍</div>
+            <div>
+              <div class="profile-line">
+                <h2 id="profile-name">홍길동</h2>
+                <span class="tag" id="profile-segment">VIP</span>
+              </div>
+              <p id="profile-meta">메트라이프 · 동행 Plus</p>
+            </div>
+          </div>
+          <div class="hero-metrics">
+            <div>
+              <span>예상 적립금</span>
+              <strong id="expected-value">0원</strong>
+            </div>
+            <div>
+              <span>오늘 변동</span>
+              <strong id="daily-profit">0원</strong>
+            </div>
+            <div>
+              <span>누적 수익</span>
+              <strong id="total-profit">0원</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="kpi-grid" aria-label="수익 지표">
+          <article class="metric-card">
+            <span>오늘 수익</span>
+            <strong id="kpi-day">0원</strong>
+            <small id="kpi-day-rate">0%</small>
+          </article>
+          <article class="metric-card">
+            <span>이번달</span>
+            <strong id="kpi-month">0원</strong>
+            <small id="kpi-month-rate">0%</small>
+          </article>
+          <article class="metric-card">
+            <span>올해</span>
+            <strong id="kpi-year">0원</strong>
+            <small id="kpi-year-rate">0%</small>
+          </article>
+          <article class="metric-card">
+            <span>실제 대비 오차</span>
+            <strong id="kpi-gap">0원</strong>
+            <small id="kpi-gap-rate">0%</small>
+          </article>
+        </section>
+
+        <div class="content-grid">
+          <section class="panel wide chart-panel" aria-label="적립금 변화 그래프">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">reserve graph</p>
+                <h3>적립금 변화</h3>
+              </div>
+              <div class="segmented" role="tablist" aria-label="그래프 기간">
+                <button class="range-btn active" data-range="30">1M</button>
+                <button class="range-btn" data-range="90">3M</button>
+                <button class="range-btn" data-range="180">6M</button>
+                <button class="range-btn" data-range="365">1Y</button>
+              </div>
+            </div>
+            <div id="reserve-chart" class="reserve-chart"></div>
+            <div class="chart-footer">
+              <span id="chart-start-label">최초등록</span>
+              <span id="chart-end-label">오늘</span>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="보험사별 펀드 랭킹">
+            <div class="panel-head compact">
+              <div>
+                <p class="eyebrow">daily ranking</p>
+                <h3>펀드 랭킹</h3>
+              </div>
+              <div class="select-stack">
+                <select id="ranking-insurer" aria-label="랭킹 보험사"></select>
+                <select id="ranking-period" aria-label="랭킹 기간">
+                  <option value="day">1일</option>
+                  <option value="month">1개월</option>
+                  <option value="quarter">3개월</option>
+                  <option value="halfYear">6개월</option>
+                  <option value="year">1년</option>
+                  <option value="threeYearRate">3년</option>
+                  <option value="fiveYearRate">5년</option>
+                  <option value="cumulativeRate">누적</option>
+                </select>
+              </div>
+            </div>
+            <div id="fund-ranking" class="ranking-list"></div>
+          </section>
+
+          <section class="panel" aria-label="전체 변액보험 펀드 라인업">
+            <div class="panel-head compact">
+              <div>
+                <p class="eyebrow">fund catalog</p>
+                <h3>전체 펀드 라인업</h3>
+              </div>
+            </div>
+            <label class="catalog-search" for="fund-search">
+              <span class="icon" data-icon="search"></span>
+              <input id="fund-search" type="search" placeholder="펀드명 또는 보험사 검색" autocomplete="off" />
+            </label>
+            <p class="catalog-meta" id="fund-catalog-meta">수집 데이터 없음</p>
+            <div id="fund-catalog" class="fund-catalog"></div>
+          </section>
+
+          <section class="panel wide" aria-label="현재 펀드 구성">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">allocation</p>
+                <h3>현재 펀드</h3>
+              </div>
+              <button class="ghost-btn slim" id="rebalance-current">
+                <span class="icon" data-icon="sliders"></span>
+                변경안 반영
+              </button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>펀드</th>
+                    <th>비중</th>
+                    <th>오늘</th>
+                    <th>이번달</th>
+                    <th>기준가</th>
+                    <th>예상 기여</th>
+                  </tr>
+                </thead>
+                <tbody id="allocation-table"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="펀드 변경 시뮬레이션">
+            <div class="panel-head compact">
+              <div>
+                <p class="eyebrow">simulation</p>
+                <h3>변경 시뮬레이션</h3>
+              </div>
+              <select id="simulation-period" aria-label="시뮬레이션 기간">
+                <option value="month">1개월</option>
+                <option value="year" selected>1년</option>
+              </select>
+            </div>
+            <div class="quick-actions">
+              <button class="chip-btn" data-preset="current">현재</button>
+              <button class="chip-btn" data-preset="top">100% 1위</button>
+              <button class="chip-btn" data-preset="growth">공격형</button>
+              <button class="chip-btn" data-preset="defense">안정형</button>
+            </div>
+            <label class="catalog-search compact-search" for="sim-fund-search">
+              <span class="icon" data-icon="search"></span>
+              <input id="sim-fund-search" type="search" placeholder="시뮬레이션에 넣을 펀드 검색" autocomplete="off" />
+            </label>
+            <div id="simulation-picker" class="simulation-picker"></div>
+            <div id="simulation-controls" class="simulation-controls"></div>
+            <div class="simulation-result">
+              <span>예상 적립금</span>
+              <strong id="simulation-value">0원</strong>
+              <small id="simulation-profit">0원</small>
+            </div>
+          </section>
+
+          <section class="panel wide" aria-label="관리 이력">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">management history</p>
+                <h3>관리 이력</h3>
+              </div>
+              <button class="ghost-btn slim" id="add-history">
+                <span class="icon" data-icon="calendar-plus"></span>
+                이력 추가
+              </button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>날짜</th>
+                    <th>적립금</th>
+                    <th>변경 내용</th>
+                    <th>변경 이유</th>
+                    <th>결과</th>
+                  </tr>
+                </thead>
+                <tbody id="history-table"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="고객 알림">
+            <div class="panel-head compact">
+              <div>
+                <p class="eyebrow">client notice</p>
+                <h3>알림 문안</h3>
+              </div>
+              <button class="ghost-btn icon-only" id="copy-notice" aria-label="알림 복사">
+                <span class="icon" data-icon="copy"></span>
+              </button>
+            </div>
+            <div id="client-notice" class="notice-box"></div>
+          </section>
+
+          <section class="panel wide report-panel" aria-label="상담 리포트">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">one page report</p>
+                <h3>상담 리포트</h3>
+              </div>
+              <button class="primary-btn slim" id="print-report-inline">
+                <span class="icon" data-icon="printer"></span>
+                출력
+              </button>
+            </div>
+            <div id="report-preview" class="report-preview"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <dialog id="client-modal">
+      <form method="dialog" class="modal-card" id="client-form">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">new client</p>
+            <h3>고객 등록</h3>
+          </div>
+          <button class="ghost-btn icon-only" type="button" id="close-client-modal" aria-label="닫기">
+            <span class="icon" data-icon="x"></span>
+          </button>
+        </div>
+        <label>
+          고객명
+          <input name="name" required placeholder="예: 홍길동" />
+        </label>
+        <label>
+          보험사
+          <select name="insurer" required></select>
+        </label>
+        <label>
+          상품명
+          <input name="product" required placeholder="예: 동행 Plus" />
+        </label>
+        <label>
+          현재 적립금
+          <input name="reserve" type="number" min="1000000" step="1000000" required placeholder="100000000" />
+        </label>
+        <div class="modal-actions">
+          <button class="ghost-btn" type="button" id="cancel-client-modal">취소</button>
+          <button class="primary-btn" type="submit">등록</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

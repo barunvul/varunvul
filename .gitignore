@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.vercel/
+_tmp_*.xls
+_tmp_*.xlsx
+*.log
+__pycache__/
+*.pyc
