@@ -7,7 +7,7 @@ if (-not (Test-Path -LiteralPath $Node)) {
 
 Push-Location $PSScriptRoot
 try {
-  & $Node .\server.mjs
+  & $Node .\local-server.mjs
 }
 finally {
   Pop-Location

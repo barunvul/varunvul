@@ -10,6 +10,7 @@ import updateFundsHandler from "./api/update-funds.js";
 import statusHandler from "./api/status.js";
 import { hasSupabase } from "./lib/supabase-rest.mjs";
 
+// Local development server only. Vercel uses files in /api as serverless functions.
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)));
 let PORT = 5173;
 const BUNDLED_PYTHON = join(

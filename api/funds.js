@@ -1,17 +1,11 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { loadFundPayload, hasSupabase } from "../lib/supabase-rest.mjs";
+import { loadStaticFundPayload } from "../lib/static-fund-data.mjs";
 
 function sendJson(response, status, payload) {
   response.statusCode = status;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.setHeader("cache-control", "no-store");
   response.end(JSON.stringify(payload));
-}
-
-async function loadStaticFallback() {
-  const file = join(process.cwd(), "data", "funds.json");
-  return JSON.parse(await readFile(file, "utf8"));
 }
 
 export default async function handler(request, response) {
@@ -30,7 +24,7 @@ export default async function handler(request, response) {
       }
     }
 
-    const fallback = await loadStaticFallback();
+    const fallback = await loadStaticFundPayload();
     fallback.meta = {
       ...(fallback.meta || {}),
       storage: "static-fallback",

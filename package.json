@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.mjs",
-    "start": "node server.mjs",
+    "dev": "node local-server.mjs",
+    "start": "node local-server.mjs",
     "build": "npm run check",
-    "check": "node --check app.js && node --check server.mjs && node --check api/funds.js && node --check api/update-funds.js && node --check api/status.js && node --check lib/klia-funds.mjs && node --check lib/supabase-rest.mjs && node --check scripts/push_funds_to_supabase.mjs",
+    "check": "node --check app.js && node --check local-server.mjs && node --check api/funds.js && node --check api/update-funds.js && node --check api/status.js && node --check lib/klia-funds.mjs && node --check lib/static-fund-data.mjs && node --check lib/supabase-rest.mjs && node --check scripts/push_funds_to_supabase.mjs",
     "update:funds": "python scripts/update_funds.py",
     "db:push-funds": "node scripts/push_funds_to_supabase.mjs"
   },

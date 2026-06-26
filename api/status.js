@@ -1,22 +1,11 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { hasSupabase, loadFundPayload } from "../lib/supabase-rest.mjs";
+import { loadStaticFundMeta } from "../lib/static-fund-data.mjs";
 
 function sendJson(response, status, payload) {
   response.statusCode = status;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.setHeader("cache-control", "no-store");
   response.end(JSON.stringify(payload));
-}
-
-async function loadStaticMeta() {
-  const file = join(process.cwd(), "data", "funds.json");
-  const payload = JSON.parse(await readFile(file, "utf8"));
-  return {
-    stdDate: payload.meta?.stdDate || null,
-    fetchedAt: payload.meta?.fetchedAt || null,
-    fundCount: Array.isArray(payload.funds) ? payload.funds.length : 0,
-  };
 }
 
 export default async function handler(_request, response) {
@@ -47,7 +36,7 @@ export default async function handler(_request, response) {
   }
 
   try {
-    status.staticFallback = await loadStaticMeta();
+    status.staticFallback = await loadStaticFundMeta();
     if (status.activeSource === "none" && status.staticFallback.fundCount > 0) {
       status.activeSource = "static-fallback";
     }

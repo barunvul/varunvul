@@ -10,6 +10,8 @@
 - 자동 갱신: Vercel Cron
 - 로컬 보조 수집: `scripts/update_funds.py`
 
+Vercel에서는 `/api` 폴더의 파일만 서버리스 함수 진입점으로 사용합니다. `local-server.mjs`는 로컬 개발 전용 서버이며 Vercel 진입점으로 사용하지 않습니다.
+
 ## 로컬 실행
 
 ```powershell
