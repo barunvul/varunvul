@@ -1362,6 +1362,8 @@ function wireEvents() {
   els.syncDataButton.addEventListener("click", async () => {
     showToast("생명보험협회 공시 데이터를 수집 중입니다.");
     els.syncDataButton.disabled = true;
+    const beforeDataDate = DATA_DATE;
+    const beforeLastSync = state.lastSync;
     let failedReason = "";
     try {
       const response = await fetch("/api/update-funds", { method: "POST" });
@@ -1385,6 +1387,10 @@ function wireEvents() {
     const loaded = await loadExternalFundData();
     populateModalOptions();
     renderAll();
+    if (loaded && (DATA_DATE !== beforeDataDate || state.lastSync !== beforeLastSync)) {
+      showToast(`응답이 지연됐지만 최신 공시 데이터(${formatDate(DATA_DATE)})를 반영했습니다.`);
+      return;
+    }
     showToast(
       failedReason
         ? `수집 실패: ${failedReason}`
