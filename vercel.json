@@ -4,12 +4,7 @@
   "functions": {
     "app.js": {
       "maxDuration": 60,
-      "includeFiles": [
-        "index.html",
-        "styles.css",
-        "dashboard.js",
-        "data/funds.json"
-      ]
+      "includeFiles": "**"
     },
     "api/update-funds.js": {
       "maxDuration": 60
