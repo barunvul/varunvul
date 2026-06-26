@@ -409,8 +409,23 @@ button {
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
-  gap: 10px;
+  gap: 8px;
   align-items: start;
+}
+
+.content-column {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.content-column .panel {
+  box-shadow: 0 8px 20px rgba(28, 36, 31, 0.045);
+}
+
+.content-column .panel + .panel {
+  border-top-color: rgba(12, 122, 82, 0.22);
 }
 
 .panel {
@@ -420,7 +435,7 @@ button {
 }
 
 .panel.wide {
-  grid-column: 1;
+  grid-column: auto;
 }
 
 .panel-head {
@@ -803,6 +818,13 @@ tbody tr:last-child td {
   min-width: 0;
 }
 
+.sim-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px;
+  gap: 8px;
+  align-items: center;
+}
+
 .sim-row span:first-child {
   overflow: hidden;
   color: var(--ink);
@@ -817,10 +839,32 @@ input[type="range"] {
   accent-color: var(--green);
 }
 
+.sim-number {
+  width: 58px;
+  height: 30px;
+  padding: 0 6px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
 .sim-weight {
   justify-self: end;
   color: var(--green);
   font-weight: 900;
+}
+
+.simulation-meta {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .simulation-result {
@@ -1139,7 +1183,7 @@ dialog::backdrop {
   .topbar,
   .kpi-grid,
   .chart-panel,
-  .content-grid > .panel:not(.report-panel),
+  .content-grid .panel:not(.report-panel),
   .client-hero,
   .toast {
     display: none !important;
@@ -1148,6 +1192,7 @@ dialog::backdrop {
   .app-shell,
   .workspace,
   .content-grid,
+  .content-column,
   .panel.wide {
     display: block;
     padding: 0;

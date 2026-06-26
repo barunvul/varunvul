@@ -368,6 +368,7 @@ const els = {
   simFundSearch: document.querySelector("#sim-fund-search"),
   simulationPicker: document.querySelector("#simulation-picker"),
   simulationControls: document.querySelector("#simulation-controls"),
+  simulationMeta: document.querySelector("#simulation-meta"),
   simulationPeriod: document.querySelector("#simulation-period"),
   simulationValue: document.querySelector("#simulation-value"),
   simulationProfit: document.querySelector("#simulation-profit"),
@@ -624,6 +625,9 @@ function updateErrorMessage(result, response) {
       // Keep the original text.
     }
   }
+  if (raw.includes("SUPABASE_URL") || raw.includes("SUPABASE_SERVICE_ROLE_KEY")) {
+    return "Vercel에서 최신 데이터를 저장하려면 Supabase 환경변수(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)를 설정해야 합니다.";
+  }
   if (raw.includes("WinError 10013") || raw.includes("원격 서버에 연결할 수 없습니다")) {
     return "외부 공시 사이트 접속이 차단되어 수집하지 못했습니다. 로컬 보안/방화벽 또는 실행 환경의 네트워크 권한을 확인해주세요.";
   }
@@ -854,8 +858,28 @@ function normalizedSimulationWeights(funds) {
   const selectedFunds = funds.filter((fund) => simulationSelectedFundIds.includes(fund.id));
   const total = selectedFunds.reduce((sum, fund) => sum + Number(simulationWeights[fund.id] || 0), 0);
   if (!selectedFunds.length) return [];
-  if (!total) return selectedFunds.map((fund, index) => ({ fund, weight: index === 0 ? 1 : 0 }));
+  if (!total) return [];
   return selectedFunds.map((fund) => ({ fund, weight: Number(simulationWeights[fund.id] || 0) / total }));
+}
+
+function selectedSimulationFunds(client) {
+  const available = new Map(fundsForInsurer(client.insurer).map((fund) => [fund.id, fund]));
+  return simulationSelectedFundIds.map((id) => available.get(id)).filter(Boolean);
+}
+
+function simulationWeightTotal(client) {
+  return selectedSimulationFunds(client).reduce((sum, fund) => sum + Number(simulationWeights[fund.id] || 0), 0);
+}
+
+function setEqualSimulationWeights(client) {
+  const selected = selectedSimulationFunds(client);
+  if (!selected.length) return;
+  const base = Math.floor(100 / selected.length);
+  let remainder = 100 - base * selected.length;
+  selected.forEach((fund) => {
+    simulationWeights[fund.id] = base + (remainder > 0 ? 1 : 0);
+    remainder -= 1;
+  });
 }
 
 function simulationAllocations(client) {
@@ -866,21 +890,24 @@ function simulationAllocations(client) {
 }
 
 function toggleSimulationFund(fundId) {
+  const client = currentClient();
   if (simulationSelectedFundIds.includes(fundId)) {
     simulationSelectedFundIds = simulationSelectedFundIds.filter((id) => id !== fundId);
     delete simulationWeights[fundId];
-    if (!simulationSelectedFundIds.length) resetSimulationWeights(currentClient());
+    if (simulationSelectedFundIds.length && simulationWeightTotal(client) === 0) {
+      setEqualSimulationWeights(client);
+    }
     return;
   }
 
   simulationSelectedFundIds = [...simulationSelectedFundIds, fundId];
-  simulationWeights[fundId] = simulationSelectedFundIds.length === 1 ? 100 : 0;
+  setEqualSimulationWeights(client);
 }
 
 function renderSimulation(client) {
   const insurerFunds = fundsForInsurer(client.insurer);
 
-  if (simulationClientId !== client.id || !Object.keys(simulationWeights).length) {
+  if (simulationClientId !== client.id) {
     resetSimulationWeights(client);
   }
 
@@ -890,12 +917,15 @@ function renderSimulation(client) {
   els.simulationControls.innerHTML = selectedFunds.length
     ? selectedFunds
     .map((fund) => {
-      const weight = Number(simulationWeights[fund.id] || 0);
+      const weight = clamp(Number(simulationWeights[fund.id] || 0), 0, 100);
       return `
         <div class="sim-row">
           <label>
             <span>${fund.name}</span>
-            <input type="range" min="0" max="100" step="5" value="${weight}" data-sim-fund="${fund.id}" aria-label="${fund.name} 비중" />
+            <span class="sim-inputs">
+              <input type="range" min="0" max="100" step="1" value="${weight}" data-sim-fund="${fund.id}" aria-label="${fund.name} 비중" />
+              <input class="sim-number" type="number" min="0" max="100" step="1" value="${weight}" data-sim-number="${fund.id}" aria-label="${fund.name} 비중 숫자" />
+            </span>
           </label>
           <b class="sim-weight">${weight}%</b>
         </div>
@@ -917,10 +947,18 @@ function renderSimulationPicker(client) {
       const haystack = `${fund.name} ${fund.category} ${fund.fundCd}`.toLowerCase();
       return !query || haystack.includes(query);
     })
-    .sort((a, b) => rateForFund(b, period) - rateForFund(a, period))
-    .slice(0, 30);
+    .sort((a, b) => rateForFund(b, period) - rateForFund(a, period));
+  const selectedPinned = selectedSimulationFunds(client);
+  const seen = new Set();
+  const shown = [...selectedPinned, ...ranked]
+    .filter((fund) => {
+      if (seen.has(fund.id)) return false;
+      seen.add(fund.id);
+      return true;
+    })
+    .slice(0, query ? 100 : 70);
 
-  els.simulationPicker.innerHTML = ranked
+  els.simulationPicker.innerHTML = shown
     .map((fund) => {
       const selected = simulationSelectedFundIds.includes(fund.id);
       return `
@@ -939,10 +977,17 @@ function renderSimulationPicker(client) {
 function renderSimulationResult(client) {
   const period = els.simulationPeriod.value;
   const insurerFunds = fundsForInsurer(client.insurer);
+  const selectedCount = selectedSimulationFunds(client).length;
+  const rawTotal = simulationWeightTotal(client);
+  if (els.simulationMeta) {
+    els.simulationMeta.textContent = selectedCount
+      ? `선택 ${selectedCount}개 · 입력 합계 ${rawTotal}%${rawTotal === 100 ? "" : " · 변경안 반영 시 100%로 자동 환산"}`
+      : "펀드를 선택하면 변경안을 만들 수 있습니다.";
+  }
   const normalized = normalizedSimulationWeights(insurerFunds);
   if (!normalized.length) {
     els.simulationValue.textContent = "-";
-    els.simulationProfit.textContent = "선택된 펀드가 없습니다.";
+    els.simulationProfit.textContent = selectedCount ? "비중 합계가 0%입니다." : "선택된 펀드가 없습니다.";
     return;
   }
   const rate = normalized.reduce((sum, item) => sum + item.weight * item.fund[period], 0);
@@ -1069,6 +1114,34 @@ function renderAll() {
   renderReport(client, summary);
 }
 
+function arrangeDashboardColumns() {
+  const grid = document.querySelector(".content-grid");
+  if (!grid || grid.querySelector(".content-column")) return;
+
+  const mainColumn = document.createElement("div");
+  const sideColumn = document.createElement("div");
+  mainColumn.className = "content-column content-column--main";
+  sideColumn.className = "content-column content-column--side";
+
+  const mainPanels = [
+    document.querySelector(".chart-panel"),
+    els.fundCatalog?.closest(".panel"),
+    els.allocationTable?.closest(".panel"),
+    els.historyTable?.closest(".panel"),
+    document.querySelector(".report-panel"),
+  ].filter(Boolean);
+
+  const sidePanels = [
+    els.fundRanking?.closest(".panel"),
+    els.simulationPicker?.closest(".panel"),
+    els.notice?.closest(".panel"),
+  ].filter(Boolean);
+
+  grid.append(mainColumn, sideColumn);
+  mainPanels.forEach((panel) => mainColumn.append(panel));
+  sidePanels.forEach((panel) => sideColumn.append(panel));
+}
+
 function copyText(text, successMessage) {
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(() => showToast(successMessage));
@@ -1158,10 +1231,18 @@ function wireEvents() {
   });
 
   els.simulationControls.addEventListener("input", (event) => {
-    const input = event.target.closest("[data-sim-fund]");
+    const input = event.target.closest("[data-sim-fund], [data-sim-number]");
     if (!input) return;
-    simulationWeights[input.dataset.simFund] = Number(input.value);
-    renderSimulation(currentClient());
+    const fundId = input.dataset.simFund || input.dataset.simNumber;
+    const value = clamp(Number(input.value || 0), 0, 100);
+    simulationWeights[fundId] = value;
+    const row = input.closest(".sim-row");
+    row?.querySelectorAll(`[data-sim-fund="${fundId}"], [data-sim-number="${fundId}"]`).forEach((control) => {
+      if (control !== input) control.value = value;
+    });
+    const label = row?.querySelector(".sim-weight");
+    if (label) label.textContent = `${value}%`;
+    renderSimulationResult(currentClient());
   });
 
   els.simulationPeriod.addEventListener("change", () => renderSimulationResult(currentClient()));
@@ -1334,6 +1415,12 @@ function applyPreset(preset) {
     return;
   }
 
+  if (preset === "clear") {
+    simulationSelectedFundIds = [];
+    simulationWeights = {};
+    return;
+  }
+
   if (preset === "top") {
     simulationSelectedFundIds = [rankedByPeriod[0].id];
     simulationWeights[rankedByPeriod[0].id] = 100;
@@ -1383,6 +1470,7 @@ async function bootstrap() {
   await loadExternalFundData();
   populateModalOptions();
   initFromUrl();
+  arrangeDashboardColumns();
   wireEvents();
   renderAll();
 }

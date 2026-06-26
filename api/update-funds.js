@@ -30,30 +30,36 @@ export default async function handler(request, response) {
     return;
   }
 
+  if (!hasSupabase()) {
+    sendJson(response, 500, {
+      ok: false,
+      persisted: false,
+      storage: "not-configured",
+      error: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for Vercel data updates.",
+    });
+    return;
+  }
+
   try {
     const payload = await buildFundPayload();
-    let persisted = false;
-    if (hasSupabase()) {
-      await saveFundPayload(payload);
-      persisted = true;
-    }
+    await saveFundPayload(payload);
 
     sendJson(response, 200, {
       ok: true,
-      persisted,
+      persisted: true,
       fundCount: payload.meta.fundCount,
       insurerCount: payload.meta.insurerCount,
       stdDate: payload.meta.stdDate,
       previousStdDate: payload.meta.previousStdDate,
       monthAgoStdDate: payload.meta.monthAgoStdDate,
-      storage: persisted ? "supabase" : "memory-only",
-      message: persisted
-        ? "Supabase에 공시 데이터를 저장했습니다."
-        : "Supabase 환경변수가 없어 수집만 수행했습니다.",
+      storage: "supabase",
+      message: "Fund data saved to Supabase.",
     });
   } catch (error) {
     sendJson(response, 500, {
       ok: false,
+      persisted: false,
+      storage: "supabase",
       error: error.message || String(error),
     });
   }

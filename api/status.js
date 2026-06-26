@@ -12,6 +12,8 @@ export default async function handler(_request, response) {
   const status = {
     ok: true,
     supabaseConfigured: hasSupabase(),
+    updatePersistence: hasSupabase() ? "supabase" : "disabled-until-supabase-env-is-set",
+    updateSecretConfigured: Boolean(process.env.UPDATE_SECRET),
     activeSource: "none",
     supabase: null,
     staticFallback: null,
