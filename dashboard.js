@@ -1,11 +1,23 @@
 const STORAGE_KEY = "variable-insurance-manager-pro-v2";
 let DATA_DATE = "2026-06-25";
+const TODAY_DATE = todayInSeoulDate();
 let appMeta = {
   displayName: "변액보험 매니저 Pro",
   maker: "바른변액",
-  version: "0.3.1",
+  version: "0.3.2",
   updatedAt: "2026-06-27",
 };
+
+function todayInSeoulDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
 
 const insurerThemes = [
   { names: ["삼성생명", "삼성"], primary: "#1f5fbf", soft: "#eaf2ff", ink: "#174a92" },
@@ -663,7 +675,7 @@ function parseMoneyInput(value) {
 }
 
 function sanitizeDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : DATA_DATE;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? value : TODAY_DATE;
 }
 
 async function loadAppMeta() {
@@ -781,7 +793,13 @@ function renderHeader(client, summary) {
   applyInsurerTheme(els.clientHero, client.insurer);
   applyInsurerTheme(els.clientAvatar, client.insurer);
   const meta = state.fundDatasetMeta || {};
-  const sourceLabel = meta.fundCount ? `공시 기준일 ${formatDate(DATA_DATE)} · ${meta.fundCount.toLocaleString("ko-KR")}개 펀드` : `모의 기준일 ${formatDate(DATA_DATE)}`;
+  const dateLabel =
+    DATA_DATE === TODAY_DATE
+      ? `오늘 공시 기준일 ${formatDate(DATA_DATE)}`
+      : `오늘 ${formatDate(TODAY_DATE)} · 최신 공시 기준일 ${formatDate(DATA_DATE)}`;
+  const sourceLabel = meta.fundCount
+    ? `${dateLabel} · ${meta.fundCount.toLocaleString("ko-KR")}개 펀드`
+    : `오늘 ${formatDate(TODAY_DATE)} · 모의 기준일 ${formatDate(DATA_DATE)}`;
   els.dataDate.textContent = `${sourceLabel} · 마지막 수집 ${state.lastSync}`;
   els.clientTitle.textContent = `${client.name} 포트폴리오`;
   els.clientAvatar.textContent = client.name.slice(0, 1);
@@ -954,7 +972,8 @@ function renderChart(client) {
     </svg>
   `;
   els.chartStartLabel.textContent = `최초등록 ${formatDate(client.baseDate)}`;
-  els.chartEndLabel.textContent = `오늘 ${formatDate(DATA_DATE)}`;
+  els.chartEndLabel.textContent =
+    DATA_DATE === TODAY_DATE ? `오늘 ${formatDate(TODAY_DATE)}` : `오늘 ${formatDate(TODAY_DATE)} · 공시 ${formatDate(DATA_DATE)}`;
 }
 
 function resetSimulationWeights(client) {
@@ -1266,7 +1285,7 @@ function openClientModal(client = null) {
   fields.segment.value = client?.segment || "신규";
   fields.insurer.value = client?.insurer || currentClient()?.insurer || insurers()[0] || "";
   fields.product.value = client?.product || "";
-  fields.baseDate.value = client?.baseDate || DATA_DATE;
+  fields.baseDate.value = client?.baseDate || TODAY_DATE;
   fields.reserve.value = Number.isFinite(client?.baseValue) ? Math.round(client.baseValue) : "";
   fields.actualValue.value = Number.isFinite(client?.actualValue) ? Math.round(client.actualValue) : "";
   els.clientModal.showModal();
@@ -1304,7 +1323,7 @@ function saveClientFromForm() {
       previousReserve !== payload.reserve ? `적립금 ${formatShortMoney(previousReserve)} → ${formatShortMoney(payload.reserve)}` : "",
     ].filter(Boolean);
     target.history.unshift({
-      date: DATA_DATE,
+      date: TODAY_DATE,
       value: payload.reserve,
       change: "고객 정보 수정",
       reason: reason.join(" · ") || "기본 정보 수정",
@@ -1339,7 +1358,7 @@ function saveClientFromForm() {
     allocations,
     history: [
       {
-        date: DATA_DATE,
+        date: TODAY_DATE,
         value: payload.reserve,
         change: "최초 등록",
         reason: "신규 고객 포트폴리오 등록",
@@ -1509,7 +1528,7 @@ function wireEvents() {
     const after = allocationLabel(client.allocations);
     const summary = clientSummary(client);
     client.history.unshift({
-      date: DATA_DATE,
+      date: TODAY_DATE,
       value: summary.expected,
       change: after,
       reason: before === after ? "현재 구성 재확인" : `펀드 변경 반영: ${before} → ${after}`,
@@ -1528,7 +1547,7 @@ function wireEvents() {
     const change = allocations.length ? allocationLabel(allocations) : allocationLabel(client.allocations);
     const isSame = allocations.length && currentAllocationSignature(client) === currentAllocationSignature({ allocations });
     client.history.unshift({
-      date: DATA_DATE,
+      date: TODAY_DATE,
       value: summary.expected,
       change,
       reason: isSame ? "현재 펀드 구성 점검 기록" : "시뮬레이션에서 선택한 펀드 변경안 기록",
@@ -1577,10 +1596,18 @@ function wireEvents() {
           populateModalOptions();
           renderAll();
           if (result.live === false) {
-            showToast(`실시간 수집은 실패했지만 저장된 공시 데이터(${formatDate(result.stdDate)})를 다시 반영했습니다.`);
+            showToast(
+              `오늘(${formatDate(result.requestedStdDate || TODAY_DATE)}) 기준 수집은 실패했지만 최신 공시 데이터(${formatDate(result.stdDate)})를 반영했습니다.`,
+            );
             return;
           }
-          showToast(`공시 데이터 ${result.fundCount.toLocaleString("ko-KR")}개를 ${formatDate(result.stdDate)} 기준으로 갱신했습니다.`);
+          if (result.requestedDateMatched === false) {
+            showToast(
+              `오늘(${formatDate(result.requestedStdDate || TODAY_DATE)}) 공시는 아직 없어 최신 공시일 ${formatDate(result.stdDate)} 기준 ${result.fundCount.toLocaleString("ko-KR")}개를 반영했습니다.`,
+            );
+            return;
+          }
+          showToast(`오늘 공시 데이터 ${result.fundCount.toLocaleString("ko-KR")}개를 ${formatDate(result.stdDate)} 기준으로 갱신했습니다.`);
           return;
         }
       }
@@ -1595,7 +1622,7 @@ function wireEvents() {
     populateModalOptions();
     renderAll();
     if (loaded && (DATA_DATE !== beforeDataDate || state.lastSync !== beforeLastSync)) {
-      showToast(`응답이 지연됐지만 최신 공시 데이터(${formatDate(DATA_DATE)})를 반영했습니다.`);
+      showToast(`응답이 지연됐지만 오늘(${formatDate(TODAY_DATE)}) 기준 최신 공시 데이터(${formatDate(DATA_DATE)})를 반영했습니다.`);
       return;
     }
     showToast(

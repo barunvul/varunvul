@@ -9,6 +9,17 @@ function sendJson(response, status, payload) {
   response.end(JSON.stringify(payload));
 }
 
+function todayInSeoulDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
+
 function authorized(request) {
   const secret = process.env.UPDATE_SECRET;
   const userAgent = String(request.headers["user-agent"] || "");
@@ -47,13 +58,16 @@ async function loadPreviousPayload() {
   return { payload: null, source: "none" };
 }
 
-function refreshedFallbackPayload(previousPayload, error) {
+function refreshedFallbackPayload(previousPayload, error, requestedStdDate) {
   if (!previousPayload?.funds?.length) return null;
   return {
     ...previousPayload,
     meta: {
       ...(previousPayload.meta || {}),
       fetchedAt: new Date().toISOString(),
+      requestedStdDate,
+      requestedDateMatched: previousPayload.meta?.stdDate === requestedStdDate,
+      requestedDateFallback: previousPayload.meta?.stdDate !== requestedStdDate,
       liveUpdateFailed: true,
       liveUpdateError: error.message || String(error),
     },
@@ -83,11 +97,13 @@ export default async function handler(request, response) {
 
   const previous = await loadPreviousPayload();
   const historyMode = process.env.FUND_UPDATE_HISTORY_MODE || "cached";
+  const requestedStdDate = todayInSeoulDate();
 
   try {
     const payload = await buildFundPayload({
       previousPayload: previous.payload,
       historyMode,
+      targetDate: requestedStdDate,
     });
     await saveFundPayload(payload);
 
@@ -101,12 +117,15 @@ export default async function handler(request, response) {
       previousStdDate: payload.meta.previousStdDate,
       monthAgoStdDate: payload.meta.monthAgoStdDate,
       historyMode: payload.meta.historyMode,
+      requestedStdDate: payload.meta.requestedStdDate,
+      requestedDateMatched: payload.meta.requestedDateMatched,
+      requestedDateFallback: payload.meta.requestedDateFallback,
       previousSource: previous.source,
       storage: "supabase",
       message: "Fund data saved to Supabase.",
     });
   } catch (error) {
-    const fallbackPayload = refreshedFallbackPayload(previous.payload, error);
+    const fallbackPayload = refreshedFallbackPayload(previous.payload, error, requestedStdDate);
     if (fallbackPayload) {
       try {
         await saveFundPayload(fallbackPayload);
@@ -120,6 +139,9 @@ export default async function handler(request, response) {
           stdDate: fallbackPayload.meta.stdDate,
           previousStdDate: fallbackPayload.meta.previousStdDate,
           monthAgoStdDate: fallbackPayload.meta.monthAgoStdDate,
+          requestedStdDate: fallbackPayload.meta.requestedStdDate,
+          requestedDateMatched: fallbackPayload.meta.requestedDateMatched,
+          requestedDateFallback: fallbackPayload.meta.requestedDateFallback,
           previousSource: previous.source,
           storage: "supabase",
           error: error.message || String(error),
