@@ -120,6 +120,7 @@ export default async function handler(request, response) {
       requestedStdDate: payload.meta.requestedStdDate,
       requestedDateMatched: payload.meta.requestedDateMatched,
       requestedDateFallback: payload.meta.requestedDateFallback,
+      sourceType: payload.meta.sourceType,
       previousSource: previous.source,
       storage: "supabase",
       message: "Fund data saved to Supabase.",

@@ -4,7 +4,7 @@ const TODAY_DATE = todayInSeoulDate();
 let appMeta = {
   displayName: "변액보험 매니저 Pro",
   maker: "바른변액",
-  version: "0.3.2",
+  version: "0.3.3",
   updatedAt: "2026-06-27",
 };
 
@@ -1603,11 +1603,11 @@ function wireEvents() {
           }
           if (result.requestedDateMatched === false) {
             showToast(
-              `오늘(${formatDate(result.requestedStdDate || TODAY_DATE)}) 공시는 아직 없어 최신 공시일 ${formatDate(result.stdDate)} 기준 ${result.fundCount.toLocaleString("ko-KR")}개를 반영했습니다.`,
+              `생명보험협회 최신 공시일 ${formatDate(result.stdDate)} 기준가 ${result.fundCount.toLocaleString("ko-KR")}개를 반영해 1일 랭킹을 갱신했습니다.`,
             );
             return;
           }
-          showToast(`오늘 공시 데이터 ${result.fundCount.toLocaleString("ko-KR")}개를 ${formatDate(result.stdDate)} 기준으로 갱신했습니다.`);
+          showToast(`생명보험협회 오늘 기준가 ${result.fundCount.toLocaleString("ko-KR")}개를 반영해 1일 랭킹을 갱신했습니다.`);
           return;
         }
       }

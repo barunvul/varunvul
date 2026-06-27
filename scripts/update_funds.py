@@ -19,6 +19,7 @@ FUNDS_PATH = DATA_DIR / "funds.json"
 PRODUCTS_PATH = DATA_DIR / "products.json"
 SOURCE_BASE = "https://pub.insure.or.kr"
 FUND_DAY_URL = f"{SOURCE_BASE}/compareDis/variableInsrn/fundDay/list.do"
+FUND_DAY_EXCEL_URL = f"{SOURCE_BASE}/compareDis/variableInsrn/fundDay/excelDownload.do"
 PROD_FUND_EXCEL_URL = f"{SOURCE_BASE}/compareDis/variableInsrn/prodFund/excelDownload.do"
 
 
@@ -39,6 +40,13 @@ def fetch_fund_html(target: str | None = None) -> bytes:
     if target:
         params["search_stdYmd"] = target
     return fetch_bytes(f"{FUND_DAY_URL}?{urlencode(params)}")
+
+
+def fetch_fund_excel_html(target: str | None = None) -> bytes:
+    params = {"pageUnit": "9999"}
+    if target:
+        params["search_stdYmd"] = target
+    return fetch_bytes(f"{FUND_DAY_EXCEL_URL}?{urlencode(params)}")
 
 
 def parse_number(value: str | None) -> float | None:
@@ -155,15 +163,90 @@ def parse_fund_snapshot(html_bytes: bytes) -> list[dict[str, Any]]:
     return funds
 
 
+def parse_fund_excel_snapshot(html_bytes: bytes, target: str | None = None) -> list[dict[str, Any]]:
+    root = lxml_html.fromstring(html_bytes, parser=lxml_html.HTMLParser(encoding="utf-8"))
+    rows = root.xpath("//table//tbody/tr")
+    funds: list[dict[str, Any]] = []
+
+    for row in rows:
+        cells = row.xpath("./td")
+        if len(cells) < 9:
+            continue
+        insurer = cell_text(cells[0])
+        fund_cd = cell_text(cells[1])
+        name = cell_text(cells[2])
+        nav = parse_number(cell_text(cells[4]))
+        if not insurer or not fund_cd or not name or nav is None or "보험사명" in insurer:
+            continue
+        funds.append(
+            {
+                "id": fund_id(insurer, fund_cd),
+                "stdDate": target,
+                "memberCd": None,
+                "fundCd": fund_cd,
+                "insurer": insurer,
+                "name": name,
+                "settingDate": cell_text(cells[3]),
+                "nav": nav,
+                "oneYear": None,
+                "threeYear": None,
+                "fiveYear": None,
+                "sevenYear": None,
+                "tenYear": None,
+                "fifteenYear": None,
+                "cumulative": None,
+                "fees": {"other": parse_number(cell_text(cells[11])) if len(cells) > 11 else None},
+                "assetMix": {},
+                "bigType": cell_text(cells[6]),
+                "smallType": cell_text(cells[7]),
+                "category": cell_text(cells[7]) or cell_text(cells[6]),
+                "netAssets": parse_number(cell_text(cells[8])),
+                "source": "생명보험협회 공시실 엑셀",
+                "sourceUrl": FUND_DAY_EXCEL_URL,
+                "report": "펀드현황",
+            }
+        )
+
+    return funds
+
+
+def fetch_fund_snapshot(target: str | None = None) -> list[dict[str, Any]]:
+    try:
+        funds = parse_fund_snapshot(fetch_fund_html(target))
+        if funds:
+            return funds
+    except Exception:
+        pass
+    return parse_fund_excel_snapshot(fetch_fund_excel_html(target), target)
+
+
+def fund_lookup_keys(fund: dict[str, Any]) -> list[str]:
+    insurer = str(fund.get("insurer") or "")
+    fund_cd = str(fund.get("fundCd") or "")
+    name = str(fund.get("name") or "")
+    return [
+        str(fund.get("id") or ""),
+        f"{insurer}|{fund_cd}",
+        f"{insurer}|{name}",
+        f"{insurer.replace('생명', '')}|{fund_cd}",
+        f"{insurer.replace('생명', '')}|{name}",
+    ]
+
+
 def snapshot_by_id(funds: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    return {fund["id"]: fund for fund in funds if fund.get("id")}
+    lookup: dict[str, dict[str, Any]] = {}
+    for fund in funds:
+        for key in fund_lookup_keys(fund):
+            if key:
+                lookup[key] = fund
+    return lookup
 
 
 def fetch_snapshot_near(target: date, max_back_days: int = 10) -> tuple[str | None, list[dict[str, Any]]]:
     for offset in range(max_back_days + 1):
         candidate = target - timedelta(days=offset)
         target_text = candidate.strftime("%Y-%m-%d")
-        funds = parse_fund_snapshot(fetch_fund_html(target_text))
+        funds = fetch_fund_snapshot(target_text)
         if funds:
             return target_text, funds
     return None, []
@@ -239,11 +322,15 @@ def parse_products() -> list[dict[str, Any]]:
 
 
 def build_payload() -> dict[str, Any]:
-    current = parse_fund_snapshot(fetch_fund_html())
+    current = fetch_fund_snapshot(datetime.now().date().strftime("%Y-%m-%d"))
+    if not current:
+        current = fetch_fund_snapshot()
     if not current:
         raise RuntimeError("공시실 펀드현황 데이터를 찾지 못했습니다.")
 
-    current_date_text = current[0]["stdDate"]
+    current_date_text = current[0].get("stdDate") or datetime.now().date().strftime("%Y-%m-%d")
+    for fund in current:
+        fund["stdDate"] = fund.get("stdDate") or current_date_text
     current_date = datetime.strptime(current_date_text, "%Y-%m-%d").date()
 
     previous_date, previous = fetch_snapshot_near(current_date - timedelta(days=1))
