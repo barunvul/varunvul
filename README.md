@@ -38,13 +38,16 @@ PowerShell 실행 정책 때문에 막히는 환경에서는 기존 스크립트
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 UPDATE_SECRET=
+FUND_UPDATE_HISTORY_MODE=cached
 PORT=5173
 PYTHON=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY`는 서버 함수에서만 사용합니다. 브라우저 코드에는 넣지 마세요.
 
-`UPDATE_SECRET`은 선택 사항입니다. 값을 비우면 앱의 데이터 수집 버튼이 바로 동작합니다. 값을 넣으면 `/api/update-funds?secret=값` 또는 `x-update-secret` 헤더가 필요합니다.
+`UPDATE_SECRET`은 선택 사항입니다. 값을 넣어도 같은 사이트 안의 데이터 수집 버튼과 Vercel Cron은 동작합니다. 외부에서 직접 호출할 때는 `/api/update-funds?secret=값` 또는 `x-update-secret` 헤더가 필요합니다.
+
+`FUND_UPDATE_HISTORY_MODE=cached`는 Vercel 서버리스에서 권장하는 빠른 모드입니다. 현재 기준가를 새로 수집하고, 이전 기준가는 Supabase 또는 정적 백업의 직전 저장본을 사용합니다. `full`로 바꾸면 과거 기준일도 생명보험협회에서 다시 조회하지만, 서버리스 시간초과가 날 수 있습니다.
 
 ## Supabase 설정
 
@@ -115,10 +118,13 @@ Vercel Cron은 UTC 기준으로 동작합니다. 위 설정은 한국시간 기�
 
 ```text
 /api/update-funds
-  -> 생명보험협회 공시 페이지 수집
+  -> 생명보험협회 공시 페이지 현재 기준가 수집
+  -> 직전 저장본으로 일일 수익률 계산
   -> Supabase 저장
   -> 앱에서 /api/funds로 최신 데이터 조회
 ```
+
+실시간 수집이 외부 사이트 차단이나 시간초과로 실패하면, API는 저장된 최신 공시 데이터를 다시 Supabase에 반영하고 화면에 "실시간 수집 실패, 저장 데이터 반영" 메시지를 보여줍니다. 이 경우 기준일은 바뀌지 않습니다.
 
 ## 로컬 수동 수집
 

@@ -9,6 +9,7 @@ import fundsHandler from "./api/funds.js";
 import updateFundsHandler from "./api/update-funds.js";
 import statusHandler from "./api/status.js";
 import { hasSupabase } from "./lib/supabase-rest.mjs";
+import { loadStaticFundMeta } from "./lib/static-fund-data.mjs";
 
 // Local development server only. Vercel uses files in /api as serverless functions.
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)));
@@ -156,6 +157,24 @@ const server = createServer(async (request, response) => {
       return;
     }
     const result = await runFundUpdater();
+    if (!result.ok) {
+      try {
+        const meta = await loadStaticFundMeta();
+        sendJson(response, 200, {
+          ok: true,
+          live: false,
+          persisted: false,
+          fallback: true,
+          storage: "static-fallback",
+          fundCount: meta.fundCount,
+          stdDate: meta.stdDate,
+          error: result.error || result.stderr || "Local fund update failed.",
+        });
+        return;
+      } catch {
+        // Fall through to the original failed result.
+      }
+    }
     sendJson(response, result.ok ? 200 : 500, result);
     return;
   }

@@ -1,10 +1,10 @@
 {
   "name": "variable-insurance-manager-pro",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "appMeta": {
     "displayName": "변액보험 매니저 Pro",
     "maker": "바른변액",
-    "updatedAt": "2026-06-26"
+    "updatedAt": "2026-06-27"
   },
   "private": true,
   "type": "module",

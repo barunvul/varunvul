@@ -3,8 +3,8 @@ let DATA_DATE = "2026-06-25";
 let appMeta = {
   displayName: "변액보험 매니저 Pro",
   maker: "바른변액",
-  version: "0.3.0",
-  updatedAt: "2026-06-26",
+  version: "0.3.1",
+  updatedAt: "2026-06-27",
 };
 
 const insurerThemes = [
@@ -1576,7 +1576,11 @@ function wireEvents() {
           await loadExternalFundData();
           populateModalOptions();
           renderAll();
-          showToast(`공시 데이터 ${result.fundCount.toLocaleString("ko-KR")}개를 갱신했습니다.`);
+          if (result.live === false) {
+            showToast(`실시간 수집은 실패했지만 저장된 공시 데이터(${formatDate(result.stdDate)})를 다시 반영했습니다.`);
+            return;
+          }
+          showToast(`공시 데이터 ${result.fundCount.toLocaleString("ko-KR")}개를 ${formatDate(result.stdDate)} 기준으로 갱신했습니다.`);
           return;
         }
       }
