@@ -4,8 +4,8 @@ const TODAY_DATE = todayInSeoulDate();
 let appMeta = {
   displayName: "변액보험 매니저 Pro",
   maker: "바른변액",
-  version: "0.3.3",
-  updatedAt: "2026-06-27",
+  version: "0.3.4",
+  updatedAt: "2026-06-29",
 };
 
 function todayInSeoulDate() {
@@ -367,6 +367,10 @@ let simulationWeights = {};
 let simulationClientId = null;
 let simulationSelectedFundIds = [];
 let editingClientId = null;
+let latestFundSyncPromise = null;
+let lastDayRankingSyncAt = 0;
+
+const DAY_RANKING_SYNC_INTERVAL_MS = 60 * 1000;
 
 const rankingPeriods = {
   day: { label: "1일", suffix: "" },
@@ -478,13 +482,18 @@ function fundsForInsurer(insurer) {
   return state.funds.filter((fund) => fund.insurer === insurer);
 }
 
-function insurers() {
-  return [...new Set(state.funds.map((fund) => fund.insurer))];
+function insurerNamesFromFunds(fundList = state.funds) {
+  return [...new Set(fundList.map((fund) => fund.insurer).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko-KR"));
 }
 
-function resolveInsurerName(name, fundList = state.funds) {
-  const names = [...new Set(fundList.map((fund) => fund.insurer))];
-  if (names.includes(name)) return name;
+function insurers() {
+  return insurerNamesFromFunds(state.funds);
+}
+
+function resolveInsurerName(name = "", fundList = state.funds) {
+  const currentName = String(name || "");
+  const names = insurerNamesFromFunds(fundList);
+  if (names.includes(currentName)) return currentName;
   const aliases = {
     "메트라이프": "메트라이프생명",
     "미래에셋": "미래에셋생명",
@@ -498,8 +507,9 @@ function resolveInsurerName(name, fundList = state.funds) {
     "DB생명": "DB생명",
     "KDB생명": "KDB생명",
   };
-  if (aliases[name] && names.includes(aliases[name])) return aliases[name];
-  return names.find((candidate) => candidate.includes(name) || name.includes(candidate.replace("생명", ""))) || name;
+  if (aliases[currentName] && names.includes(aliases[currentName])) return aliases[currentName];
+  if (!currentName) return names[0] || currentName;
+  return names.find((candidate) => candidate.includes(currentName) || currentName.includes(candidate.replace("생명", ""))) || currentName;
 }
 
 function bestDefaultAllocations(insurer, fundList = state.funds) {
@@ -765,6 +775,97 @@ function updateErrorMessage(result, response) {
   return raw.replace(/\s+/g, " ").slice(0, 180);
 }
 
+function fundSyncSuccessMessage(result, reason = "manual") {
+  const requestedDate = formatDate(result?.requestedStdDate || TODAY_DATE);
+  const stdDate = formatDate(result?.stdDate || DATA_DATE);
+  const fundCount = Number(result?.fundCount || state.funds.length).toLocaleString("ko-KR");
+  const target = reason === "day-ranking" ? "1일 랭킹" : "펀드 데이터";
+
+  if (result?.live === false) {
+    return `실시간 수집은 실패했지만 저장된 최신 공시 데이터(${stdDate})로 ${target}을 다시 계산했습니다.`;
+  }
+  if (result?.requestedDateMatched === false) {
+    return `생명보험협회 최신 공시일 ${stdDate} 기준가 ${fundCount}개를 반영해 ${target}을 갱신했습니다.`;
+  }
+  return `생명보험협회 오늘(${requestedDate}) 기준가 ${fundCount}개를 반영해 ${target}을 갱신했습니다.`;
+}
+
+async function syncLatestFundData({ reason = "manual", showProgress = true } = {}) {
+  if (latestFundSyncPromise) return latestFundSyncPromise;
+
+  latestFundSyncPromise = (async () => {
+    if (showProgress) {
+      showToast(reason === "day-ranking" ? "1일 랭킹 최신 공시 데이터를 확인 중입니다." : "생명보험협회 공시 데이터를 수집 중입니다.");
+    }
+
+    if (els.syncDataButton) els.syncDataButton.disabled = true;
+
+    const beforeDataDate = DATA_DATE;
+    const beforeLastSync = state.lastSync;
+    let failedReason = "";
+
+    try {
+      const response = await fetch("/api/update-funds", { method: "POST" });
+      const result = await response.json().catch(() => null);
+      if (response.ok && result?.ok) {
+        await loadExternalFundData();
+        populateModalOptions();
+        renderAll();
+        showToast(fundSyncSuccessMessage(result, reason));
+        return true;
+      }
+      failedReason = updateErrorMessage(result, response);
+    } catch (error) {
+      failedReason = updateErrorMessage({ error: error.message }, null);
+    } finally {
+      if (els.syncDataButton) els.syncDataButton.disabled = false;
+    }
+
+    const loaded = await loadExternalFundData();
+    populateModalOptions();
+    renderAll();
+    if (loaded && (DATA_DATE !== beforeDataDate || state.lastSync !== beforeLastSync)) {
+      showToast(`응답이 지연됐지만 오늘(${formatDate(TODAY_DATE)}) 기준 최신 공시 데이터(${formatDate(DATA_DATE)})를 반영했습니다.`);
+      return true;
+    }
+
+    showToast(
+      failedReason
+        ? `수집 실패: ${failedReason}`
+        : loaded
+          ? "저장된 공시 데이터 파일을 다시 불러왔습니다."
+          : "수집 파일이 없습니다. update-funds.ps1을 먼저 실행해주세요.",
+    );
+    return false;
+  })();
+
+  try {
+    return await latestFundSyncPromise;
+  } finally {
+    latestFundSyncPromise = null;
+  }
+}
+
+async function refreshDayRankingWithLatestData() {
+  if (rankingPeriodKey() !== "day") {
+    renderRanking();
+    renderFundCatalog();
+    renderSimulation(currentClient());
+    return false;
+  }
+
+  const now = Date.now();
+  if (now - lastDayRankingSyncAt < DAY_RANKING_SYNC_INTERVAL_MS) {
+    renderRanking();
+    renderFundCatalog();
+    renderSimulation(currentClient());
+    return false;
+  }
+
+  lastDayRankingSyncAt = now;
+  return syncLatestFundData({ reason: "day-ranking" });
+}
+
 function renderClientList() {
   const query = els.clientSearch.value.trim().toLowerCase();
   const clients = state.clients.filter((client) => {
@@ -857,14 +958,25 @@ function renderAllocationTable(client, summary) {
 }
 
 function renderRankingOptions() {
-  if (!els.rankingInsurer.options.length) {
-    els.rankingInsurer.innerHTML = insurers()
+  const names = insurers();
+  const client = currentClient();
+  const previousValue = els.rankingInsurer.value;
+  const resolvedClientInsurer = resolveInsurerName(client?.insurer || "", state.funds);
+  const nextValue = names.includes(previousValue)
+    ? previousValue
+    : names.includes(resolvedClientInsurer)
+      ? resolvedClientInsurer
+      : names[0] || "";
+  const optionsSignature = names.join("|");
+
+  if (els.rankingInsurer.dataset.optionsSignature !== optionsSignature) {
+    els.rankingInsurer.innerHTML = names
       .map((insurer) => `<option value="${insurer}">${insurer}</option>`)
       .join("");
+    els.rankingInsurer.dataset.optionsSignature = optionsSignature;
   }
 
-  const client = currentClient();
-  if (!els.rankingInsurer.value) els.rankingInsurer.value = client.insurer;
+  if (nextValue) els.rankingInsurer.value = nextValue;
 }
 
 function renderRanking() {
@@ -1477,9 +1589,17 @@ function wireEvents() {
   });
 
   els.rankingPeriod?.addEventListener("change", () => {
+    if (rankingPeriodKey() === "day") {
+      refreshDayRankingWithLatestData();
+      return;
+    }
     renderRanking();
     renderFundCatalog();
     renderSimulation(currentClient());
+  });
+
+  els.rankingPeriod?.addEventListener("click", () => {
+    if (rankingPeriodKey() === "day") refreshDayRankingWithLatestData();
   });
 
   els.fundSearch?.addEventListener("input", renderFundCatalog);
@@ -1581,57 +1701,8 @@ function wireEvents() {
     saveClientFromForm();
   });
 
-  els.syncDataButton.addEventListener("click", async () => {
-    showToast("생명보험협회 공시 데이터를 수집 중입니다.");
-    els.syncDataButton.disabled = true;
-    const beforeDataDate = DATA_DATE;
-    const beforeLastSync = state.lastSync;
-    let failedReason = "";
-    try {
-      const response = await fetch("/api/update-funds", { method: "POST" });
-      const result = await response.json().catch(() => null);
-      if (response.ok) {
-        if (result.ok) {
-          await loadExternalFundData();
-          populateModalOptions();
-          renderAll();
-          if (result.live === false) {
-            showToast(
-              `오늘(${formatDate(result.requestedStdDate || TODAY_DATE)}) 기준 수집은 실패했지만 최신 공시 데이터(${formatDate(result.stdDate)})를 반영했습니다.`,
-            );
-            return;
-          }
-          if (result.requestedDateMatched === false) {
-            showToast(
-              `생명보험협회 최신 공시일 ${formatDate(result.stdDate)} 기준가 ${result.fundCount.toLocaleString("ko-KR")}개를 반영해 1일 랭킹을 갱신했습니다.`,
-            );
-            return;
-          }
-          showToast(`생명보험협회 오늘 기준가 ${result.fundCount.toLocaleString("ko-KR")}개를 반영해 1일 랭킹을 갱신했습니다.`);
-          return;
-        }
-      }
-      failedReason = updateErrorMessage(result, response);
-    } catch (error) {
-      failedReason = updateErrorMessage({ error: error.message }, null);
-    } finally {
-      els.syncDataButton.disabled = false;
-    }
-
-    const loaded = await loadExternalFundData();
-    populateModalOptions();
-    renderAll();
-    if (loaded && (DATA_DATE !== beforeDataDate || state.lastSync !== beforeLastSync)) {
-      showToast(`응답이 지연됐지만 오늘(${formatDate(TODAY_DATE)}) 기준 최신 공시 데이터(${formatDate(DATA_DATE)})를 반영했습니다.`);
-      return;
-    }
-    showToast(
-      failedReason
-        ? `수집 실패: ${failedReason}`
-        : loaded
-          ? "저장된 공시 데이터 파일을 다시 불러왔습니다."
-          : "수집 파일이 없습니다. update-funds.ps1을 먼저 실행해주세요.",
-    );
+  els.syncDataButton.addEventListener("click", () => {
+    syncLatestFundData({ reason: "manual" });
   });
 
   enableDragScroll(els.fundRanking);
